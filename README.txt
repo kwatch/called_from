@@ -25,41 +25,59 @@ But called_from() is much faster than caller()[0].
 
 
 
+Installation
+------------
+
+    $ sudo gem install called_from
+
+Or
+
+    $ tar xzf called_from_X.X.X.tar.gz
+    $ cd called_from_X.X.X/
+    $ ruby setup.rb config
+    $ ruby setup.rb setup
+    $ sudo ruby setup.rb install
+
+Notice: called_from is implemented in both C-extention and pure Ruby.
+C-extention is available on UNIX-like OS and Ruby 1.8.x.
+
+
+
 Example
 -------
 
-  require 'called_from'
+    require 'called_from'
+    
+    ##
+    ## report not only what sql is queried but also from where query() is called.
+    ## (this is very convenient for development and debugging)
+    ## in such examle, speed of called_from() is very important.
+    ##
+    def query(sql)
+      filename, linenum, function = called_from()
+      log.debug("#{Time.now}: #{sql} (called from #{filename}:#{linenum})")
+      return connection.query(sql)
+    end
+    
+    ##
+    ## if cache data is older than template file's timestamp,
+    ## refresh cache data.
+    ## it is very important that called_from() is much faster than caller()[0]
+    ## because speed is necessary for caching.
+    ##
+    def cache_helper(cache_key)
+      ## check template file's timestamp
+      template_filename, linenum, function = called_from()
+      timestamp = File.mtime(template_filename)
+      ## if cache data is newer than template's timestamp, return data
+      data = @cache.get(cache_key, :timestamp=>timestamp)
+      return data if data
+      ## if cache data is older than template's timestamp, refresh it
+      data = yield()
+      @cache.set(cache_key, data)
+      return data
+    end
 
-  ##
-  ## report not only what sql is queried but also from where query() is called.
-  ## (this is very convenient for development and debugging)
-  ## in such examle, speed of called_from() is very important.
-  ##
-  def query(sql)
-    filename, linenum, function = called_from()
-    log.debug("#{Time.now}: #{sql} (called from #{filename}:#{linenum})")
-    return connection.query(sql)
-  end
-
-  ##
-  ## if cache data is older than template file's timestamp,
-  ## refresh cache data.
-  ## it is very important that called_from() is much faster than caller()[0]
-  ## because speed is necessary for caching.
-  ##
-  def cache_helper(cache_key)
-    ## check template file's timestamp
-    template_filename, linenum, function = called_from()
-    timestamp = File.mtime(template_filename)
-    ## if cache data is newer than template's timestamp, return data
-    data = @cache.get(cache_key, :timestamp=>timestamp)
-    return data if data
-    ## if cache data is older than template's timestamp, refresh it
-    data = yield()
-    @cache.set(cache_key, data)
-    return data
-  end
-  
 
 
 Benchmark
